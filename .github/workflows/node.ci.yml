@@ -6,13 +6,13 @@ on:
       - releases/**
     paths:
       - .github/**
-      - ../../src
-      - ../../.babelrc
-      - ../../.env.dev
-      - ../../.env.prod
-      - ../../nodemon.json
-      - ../../package.json
-      - ../../tsconfig.json
+      - src/**
+      - .babelrc
+      - .env.dev
+      - .env.prod
+      - nodemon.json
+      - package.json
+      - tsconfig.json
 
 jobs:
   build:
