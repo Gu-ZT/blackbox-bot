@@ -1,0 +1,62 @@
+name: Publish Node.js Package
+
+on:
+  push:
+    branches:
+      - releases/**
+    paths:
+      - .github/**
+      - ../../src
+      - ../../.babelrc
+      - ../../.env.dev
+      - ../../.env.prod
+      - ../../nodemon.json
+      - ../../package.json
+      - ../../tsconfig.json
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+      - name: Get Build Number
+        id: get-number
+        run: echo "build_number=$GITHUB_RUN_NUMBER" >> $GITHUB_OUTPUT
+      - name: Get Version
+        id: get-version
+        run: node .github/script/json.js ./package.json version get version >> $GITHUB_OUTPUT
+      - name: Gen Version
+        id: gen-version
+        run: |
+          UPDATED_VERSION=$(echo ${{steps.get-version.outputs.version}} | sed "s/\([0-9]*\.[0-9]*\.\)[0-9]*/\1${{steps.get-number.outputs.build_number}}/")
+          echo "updated_version=$UPDATED_VERSION" >> $GITHUB_OUTPUT
+          echo ${{ steps.gen-version.outputs.updated_version }}
+      - name: Echo Version
+        id: echo-version
+        run: echo ${{ steps.gen-version.outputs.updated_version }}
+      - name: Set Version
+        run: node .github/script/json.js ./package.json version set ${{ steps.gen-version.outputs.updated_version }}
+      - name: Get Version 2
+        id: get-version-2
+        run: node .github/script/json.js ./package.json version get version_2 >> $GITHUB_OUTPUT
+      - name: Echo Version 2
+        id: echo-version-2
+        run: echo ${{ steps.get-version-2.outputs.version_2 }}
+      - name: Setup pnpm
+        run: npm i -g pnpm
+      - name: Install typescript
+        run: npm i -g typescript
+      - name: Init project
+        run: pnpm i
+      - name: Build project
+        run: tsc src/index.ts && tsc --declaration src/index.ts
+      - name: Push to npm repository
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
