@@ -12,8 +12,8 @@
   "author": "Gugle",
   "license": "LGPL-3.0-or-later",
   "dependencies": {
-    "gugle-command": "^1.1.4",
-    "gugle-event": "^1.1.3"
+    "gugle-command": "^1.1.5",
+    "gugle-event": "^1.1.4"
   },
   "devDependencies": {
     "@babel/cli": "^7.25.6",
