@@ -1,7 +1,7 @@
 import { CommandManager } from 'gugle-command';
 import { EventManager } from 'gugle-event';
 import * as process from 'node:process';
-import fs from 'fs';
+import fs from 'node:fs';
 import { Arguments, CommandNode } from 'gugle-command/src';
 
 export class Constants {
