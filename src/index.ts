@@ -21,10 +21,10 @@ class Plugin {
 
 class PluginManager {
   public readonly plugins: Plugin[] = [];
-  public readonly bot: BlackBoxBot;
+  public readonly bot: HeyBoxBot;
   private readonly single: boolean;
 
-  public constructor(bot: BlackBoxBot, single: boolean) {
+  public constructor(bot: HeyBoxBot, single: boolean) {
     this.bot = bot;
     this.single = single;
   }
@@ -49,8 +49,8 @@ class PluginManager {
   }
 }
 
-export class BlackBoxBot {
-  private static instance: BlackBoxBot;
+export class HeyBoxBot {
+  private static instance: HeyBoxBot;
   private readonly commandManager: CustomCommandManager;
   private readonly eventManager: EventManager;
   private readonly pluginManager: PluginManager;
@@ -61,23 +61,23 @@ export class BlackBoxBot {
     this.pluginManager = new PluginManager(this, single);
   }
 
-  public static getInstance(): BlackBoxBot {
-    if (!BlackBoxBot.instance) BlackBoxBot.instance = new BlackBoxBot();
-    return BlackBoxBot.instance;
+  public static getInstance(): HeyBoxBot {
+    if (!HeyBoxBot.instance) HeyBoxBot.instance = new HeyBoxBot();
+    return HeyBoxBot.instance;
   }
 
-  public static loadPlugin(plugin: Plugin): BlackBoxBot {
-    let bot = plugin.isSingle() ? new BlackBoxBot() : BlackBoxBot.getInstance();
+  public static loadPlugin(plugin: Plugin): HeyBoxBot {
+    let bot = plugin.isSingle() ? new HeyBoxBot() : HeyBoxBot.getInstance();
     bot.pluginManager.load(plugin);
     return bot;
   }
 
-  public async start(): Promise<BlackBoxBot> {
+  public async start(): Promise<HeyBoxBot> {
     // ...
     return this;
   }
 
-  public stop(): BlackBoxBot {
+  public stop(): HeyBoxBot {
     // ...
     return this;
   }
@@ -115,6 +115,6 @@ export class BlackBoxBot {
    *         function testCommand(arg0: number, arg1: string, arg2: boolean) {}
    */
   public static command(namespace: string, command: string): Function {
-    return BlackBoxBot.getInstance().command(namespace, command);
+    return HeyBoxBot.getInstance().command(namespace, command);
   }
 }
