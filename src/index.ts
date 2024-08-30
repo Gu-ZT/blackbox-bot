@@ -1,57 +1,85 @@
 import { CommandManager } from 'gugle-command';
 import { EventManager } from 'gugle-event';
 
-class Plugin {
+class CustomCommandManager extends CommandManager {
   public constructor() {
-    // ...
+    super();
+  }
+}
+
+class Plugin {
+  private readonly single: boolean;
+
+  public constructor(single: boolean = false) {
+    this.single = single;
+  }
+
+  public isSingle(): boolean {
+    return this.single;
   }
 }
 
 class PluginManager {
   public readonly plugins: Plugin[] = [];
   public readonly bot: BlackBoxBot;
+  private readonly single: boolean;
 
-  public constructor(bot: BlackBoxBot) {
+  public constructor(bot: BlackBoxBot, single: boolean) {
     this.bot = bot;
+    this.single = single;
   }
 
   public registerPlugin(plugin: Plugin): PluginManager {
     this.plugins.push(plugin);
     return this;
   }
+
+  public load(plugin: Plugin): PluginManager {
+    // ...
+    return this;
+  }
+
+  public unload(plugin: Plugin): PluginManager {
+    // ...
+    return this;
+  }
+
+  public getPlugins(): Plugin[] {
+    return this.plugins;
+  }
 }
 
 export class BlackBoxBot {
   private static instance: BlackBoxBot;
-  private readonly commandManager: CommandManager;
+  private readonly commandManager: CustomCommandManager;
   private readonly eventManager: EventManager;
   private readonly pluginManager: PluginManager;
 
-  private constructor() {
-    this.commandManager = new CommandManager();
+  private constructor(single: boolean = false) {
+    this.commandManager = new CustomCommandManager();
     this.eventManager = new EventManager();
-    this.pluginManager = new PluginManager(this);
+    this.pluginManager = new PluginManager(this, single);
   }
 
   public static getInstance(): BlackBoxBot {
-    if (!BlackBoxBot.instance) {
-      BlackBoxBot.instance = new BlackBoxBot();
-    }
+    if (!BlackBoxBot.instance) BlackBoxBot.instance = new BlackBoxBot();
     return BlackBoxBot.instance;
   }
 
-  public async start(): Promise<void> {
-    // ...
-  }
-
-  public static registerPlugin(plugin: Plugin, isSingle: boolean = true): BlackBoxBot {
-    const bot = isSingle ? BlackBoxBot.getInstance() : new BlackBoxBot();
-    bot.pluginManager.registerPlugin(plugin);
+  public static loadPlugin(plugin: Plugin): BlackBoxBot {
+    let bot = plugin.isSingle() ? new BlackBoxBot() : BlackBoxBot.getInstance();
+    bot.pluginManager.load(plugin);
     return bot;
   }
 
-  public stop(): void {
+  public async start(): Promise<BlackBoxBot> {
     // ...
+    return this;
+  }
+
+  public stop(): BlackBoxBot {
+    // ...
+    return this;
   }
 
   /**
