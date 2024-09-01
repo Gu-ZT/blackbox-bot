@@ -1,4 +1,4 @@
-<p align="center"><a href="https://www.heybox.dev" target="_blank" rel="noopener noreferrer"><img width="100" src="http://localhost:5173/icon.svg" alt="Heybox Dev logo"></a></p>
+<p align="center"><a href="https://www.heybox.dev" target="_blank" rel="noopener noreferrer"><img width="100" src="https://www.heybox.dev/icon.svg" alt="Heybox Dev logo"></a></p>
 
 <p align="center">
   <a href="https://github.com/heybox-dev/heybox-bot/actions/workflows/node.ci.yml"><img src="https://github.com/heybox-dev/heybox-bot/actions/workflows/node.ci.yml/badge.svg" alt="Build Status"></a>
