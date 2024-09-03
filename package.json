@@ -12,8 +12,10 @@
   "author": "Gugle",
   "license": "LGPL-3.0-or-later",
   "dependencies": {
+    "axios": "^1.7.7",
     "gugle-command": "^1.1.9",
-    "gugle-event": "^1.1.5"
+    "gugle-event": "^1.1.5",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.25.6",
@@ -23,6 +25,7 @@
     "@babel/preset-env": "^7.25.4",
     "@eslint/js": "^9.9.1",
     "@types/nodemon": "^1.19.6",
+    "@types/ws": "^8.5.12",
     "eslint": "^9.9.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",

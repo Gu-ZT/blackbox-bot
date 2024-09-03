@@ -1,5 +1,6 @@
 import { CommandManager } from 'gugle-command';
 import { EventManager } from 'gugle-event';
+import { WebSocket } from 'ws';
 import * as process from 'node:process';
 import * as fs from 'node:fs';
 import { Arguments, CommandNode } from 'gugle-command/src';
@@ -98,16 +99,23 @@ class PluginManager {
   }
 }
 
+export interface BotConfig {
+  single?: boolean;
+  wss?: string;
+}
+
 export class HeyBoxBot {
   private static instance: HeyBoxBot;
   private readonly commandManager: CustomCommandManager;
   private readonly eventManager: EventManager;
   private readonly pluginManager: PluginManager;
+  private readonly ws: WebSocket;
 
-  private constructor(single: boolean = false) {
+  private constructor(config: BotConfig = {}) {
     this.commandManager = new CustomCommandManager();
     this.eventManager = new EventManager();
-    this.pluginManager = new PluginManager(this, single);
+    this.pluginManager = new PluginManager(this, !!config.single);
+    this.ws = new WebSocket(config.wss ? config.wss : 'ws://127.0.0.1:8080');
   }
 
   public static getInstance(): HeyBoxBot {
