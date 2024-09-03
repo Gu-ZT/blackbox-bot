@@ -8,7 +8,15 @@
     "dev": "pnpx nodemon exec babel-node",
     "build": "tsc src/index.ts && tsc --declaration src/index.ts"
   },
-  "keywords": [],
+  "keywords": [
+    "heybox",
+    "bot",
+    "chat",
+    "frame"
+  ],
+  "bin": {
+    "heybox": "src/bin.js"
+  },
   "author": "Gugle",
   "license": "LGPL-3.0-or-later",
   "dependencies": {
