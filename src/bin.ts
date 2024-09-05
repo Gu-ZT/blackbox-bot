@@ -105,7 +105,7 @@ const initEslintConfigMjs =
   '  }\n' +
   '];\n';
 const initIndexTs =
-  "import { BotConfig, HeyBoxBot } from '.';\n" +
+  "import { BotConfig, HeyBoxBot } from 'heybox-bot';\n" +
   "import { CommandSource } from 'gugle-command';\n" +
   '\n' +
   'const config: BotConfig = new BotConfig();\n' +
