@@ -1,6 +1,5 @@
-import { CommandSource } from 'gugle-command';
 import { EventManager, Cancelable } from 'gugle-event';
-import { RawData, WebSocket } from 'ws';
+import { WebSocket } from 'ws';
 import * as process from 'node:process';
 import { BotConfig } from './config';
 import { Constants } from './constants/constants';
@@ -33,17 +32,19 @@ export class HeyBoxBot {
   public async start(path: string = process.cwd()): Promise<HeyBoxBot> {
     await this.post('before-start', this, path).then(args => {
       path = args[1];
+      this.ws.on('message', event => {
+        this.post('websocket-message', this, event);
+      });
+      this.post('after-start', this).then();
     });
-    this.ws.on('message', event => {
-      this.post('websocket-message', this, event);
-    });
-    await this.post('after-start', this);
     return this;
   }
 
   public stop(): HeyBoxBot {
-    // ...
-    this.post('after-stop', this).then();
+    this.post('before-start', this).then(() => {
+      if (this.wsOpened) this.ws.close();
+      this.post('after-stop', this).then();
+    });
     return this;
   }
 
