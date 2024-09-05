@@ -2,109 +2,24 @@ import { CommandManager, CommandSource } from 'gugle-command';
 import { EventManager, Cancelable } from 'gugle-event';
 import { RawData, WebSocket } from 'ws';
 import * as process from 'node:process';
-import * as fs from 'node:fs';
-import { Arguments, CommandNode } from 'gugle-command/src';
-import { Index } from './constants';
-
-class CustomCommandManager extends CommandManager {
-  public constructor() {
-    super();
-  }
-
-  private static checkCharacters(chars: string): boolean {
-    const reg = /^[a-z]+[a-z0-9_-]*$/;
-    return reg.test(chars);
-  }
-
-  public static parseArgument(argument: string): (arg: string) => any {
-    switch (argument.trim()) {
-      case 'NUMBER':
-        return Arguments.NUMBER;
-      case 'STRING':
-        return Arguments.STRING;
-      case 'BOOLEAN':
-        return Arguments.BOOLEAN;
-      default:
-        throw new Error('Not implemented');
-    }
-  }
-
-  public static parseNode(node: string): CommandNode {
-    if (node.startsWith('{') && node.endsWith('}')) {
-      const nodes: string[] = node.substring(1, node.length - 1).split(':');
-      return CommandManager.argument(nodes[0], CustomCommandManager.parseArgument(nodes[1]));
-    } else {
-      if (CustomCommandManager.checkCharacters(node)) {
-        return CommandManager.literal(node);
-      }
-    }
-    throw new Error('Not implemented');
-  }
-}
-
-class Plugin {
-  public constructor() {}
-}
-
-class PluginManager {
-  public rootDirectory: string = process.cwd();
-  public readonly plugins: Plugin[] = [];
-  public readonly bot: HeyBoxBot;
-
-  public constructor(bot: HeyBoxBot) {
-    this.bot = bot;
-  }
-
-  public registerPlugin(plugin: Plugin): PluginManager {
-    this.plugins.push(plugin);
-    return this;
-  }
-
-  public load(plugin: Plugin): PluginManager {
-    // ...
-    return this;
-  }
-
-  public unload(plugin: Plugin): PluginManager {
-    // ...
-    return this;
-  }
-
-  public setRootDirectory(path: string): PluginManager {
-    this.rootDirectory = path;
-    return this;
-  }
-
-  public init(): PluginManager {
-    const pluginsPath = `${this.rootDirectory}/${Index.PLUGIN_PATH}`;
-    if (!fs.existsSync(pluginsPath)) fs.mkdirSync(pluginsPath);
-    return this;
-  }
-
-  public getPlugins(): Plugin[] {
-    return this.plugins;
-  }
-}
-
-export class BotConfig {
-  token?: string = undefined;
-  wss: string = `${Index.WSS_URL}${Index.COMMON_PARAMS}${Index.TOKEN_PARAMS}`;
-}
+import { BotConfig } from './config';
+import { Constants } from './constants/constants';
+import { CustomCommandManager } from './command';
 
 export class HeyBoxBot {
   private readonly config: BotConfig;
   private readonly commandManager: CustomCommandManager;
   private readonly eventManager: EventManager;
-  private readonly pluginManager: PluginManager;
   private readonly ws: WebSocket;
   private wsOpened: boolean = false;
 
-  public constructor(config: BotConfig = new BotConfig()) {
+  public constructor(config: BotConfig = {} as BotConfig) {
     this.config = config;
     this.commandManager = new CustomCommandManager();
     this.eventManager = new EventManager();
-    this.pluginManager = new PluginManager(this);
-    this.ws = new WebSocket(`${this.config.wss}${this.config.token}`);
+    this.ws = new WebSocket(
+      `${Constants.WSS_URL}${Constants.COMMON_PARAMS}${Constants.TOKEN_PARAMS}${this.config.token}`
+    );
     this.ws.on('open', () => {
       this.wsOpened = true;
       const ping = () => {
@@ -119,17 +34,10 @@ export class HeyBoxBot {
     return new HeyBoxBot(config);
   }
 
-  public loadPlugin(plugin: Plugin): HeyBoxBot {
-    this.pluginManager.load(plugin);
-    return this;
-  }
-
   public async start(path: string = process.cwd()): Promise<HeyBoxBot> {
     await this.post('before-start', this, path).then(args => {
       path = args[1];
     });
-    this.pluginManager.setRootDirectory(path);
-    this.pluginManager.init();
     this.ws.on('message', event => {
       this.post('websocket-message', this, event);
     });
@@ -226,23 +134,3 @@ export class HeyBoxBot {
     return this.eventManager.subscribe(event, namespace, priority, cancelable);
   }
 }
-
-const config: BotConfig = new BotConfig();
-config.token = 'NzIxNjM1MjY7MTcyNTUxMDg0OTk1NDUwMzQ4NDs1MTg5MDEzOTkwNTE1OTU1NzQ=';
-const bot: HeyBoxBot = new HeyBoxBot(config);
-
-class MyBot {
-  @bot.command('test', '/test')
-  public test(source: CommandSource) {
-    source.success('test');
-  }
-
-  @bot.subscribe('websocket-message')
-  public onWebsocketMsg(bot: HeyBoxBot, msg: RawData) {
-    console.log(msg.toString('utf-8'));
-  }
-}
-
-const myBot: MyBot = new MyBot();
-
-bot.start();

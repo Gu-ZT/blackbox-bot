@@ -1,9 +1,11 @@
+export interface ResponseResult {
+  chatmobile_ack_id: string;
+  heychat_ack_id: string;
+}
+
 export interface Response {
   msg: string;
-  result: {
-    chatmobile_ack_id: string;
-    heychat_ack_id: string;
-  };
+  result: ResponseResult;
   status: string;
 }
 

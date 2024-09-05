@@ -1,4 +1,4 @@
-export class Index {
+export class Constants {
   public static readonly PLUGIN_PATH = 'plugins';
   public static readonly WSS_URL = 'wss://chat.xiaoheihe.cn/chatroom/ws/connect?';
   public static readonly COMMON_PARAMS =
