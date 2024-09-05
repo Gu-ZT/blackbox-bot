@@ -124,6 +124,10 @@ export class HeyBoxBot {
     });
     this.pluginManager.setRootDirectory(path);
     this.pluginManager.init();
+    this.ws.on('message', event => {
+      this.post('websocket-message', this, event);
+    });
+    this.ws.send('PING');
     await this.post('after-start', this);
     return this;
   }
