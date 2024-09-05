@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import * as fs from 'node:fs';
 import process from 'node:process';
-import { Constants } from '../constants/constants';
 
 const rootDirectory: string = process.cwd();
 const args: string[] = [];
@@ -19,7 +18,7 @@ const initPackageJson = {
   author: 'author',
   license: 'LGPL-3.0-or-later',
   dependencies: {
-    'heybox-bot': '^1.0.21'
+    'heybox-bot': '^1.0.22'
   },
   devDependencies: {
     '@eslint/js': '^9.9.1',
@@ -136,8 +135,6 @@ if (args.findIndex(arg => arg === 'init')) init();
 
 function init() {
   console.log('HeyBox Bot initializing...');
-  const pluginsPath = `${rootDirectory}/${Constants.PLUGIN_PATH}`;
-  if (!fs.existsSync(pluginsPath)) fs.mkdirSync(pluginsPath);
   const sourcePath = `${rootDirectory}/src`;
   if (!fs.existsSync(sourcePath)) fs.mkdirSync(sourcePath);
   const packageJsonPath = `${rootDirectory}/package.json`;
