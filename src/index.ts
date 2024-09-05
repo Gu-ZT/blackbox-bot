@@ -1,4 +1,4 @@
-import { CommandManager, CommandSource } from 'gugle-command';
+import { CommandSource } from 'gugle-command';
 import { EventManager, Cancelable } from 'gugle-event';
 import { RawData, WebSocket } from 'ws';
 import * as process from 'node:process';
@@ -28,10 +28,6 @@ export class HeyBoxBot {
       };
       ping();
     });
-  }
-
-  public static create(config: BotConfig = new BotConfig()): HeyBoxBot {
-    return new HeyBoxBot(config);
   }
 
   public async start(path: string = process.cwd()): Promise<HeyBoxBot> {

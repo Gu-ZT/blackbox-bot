@@ -19,7 +19,7 @@ const initPackageJson = {
   author: 'author',
   license: 'LGPL-3.0-or-later',
   dependencies: {
-    'heybox-bot': '^1.0.20'
+    'heybox-bot': '^1.0.21'
   },
   devDependencies: {
     '@eslint/js': '^9.9.1',
@@ -111,23 +111,27 @@ const initNodemonJson = {
 };
 
 const initIndexTs =
-  "import { BotConfig, HeyBoxBot } from 'heybox-bot';\n" +
+  "import { HeyBoxBot } from 'heybox-bot';\n" +
   "import { CommandSource } from 'gugle-command';\n" +
+  "import { RawData } from 'ws';\n" +
   '\n' +
-  'const config: BotConfig = new BotConfig();\n' +
-  "config.token = 'your token';\n" +
-  'const bot: HeyBoxBot = new HeyBoxBot(config);\n' +
+  "const bot: HeyBoxBot = new HeyBoxBot({ token:'your token' });\n" +
   '\n' +
   'class MyBot {\n' +
   "  @bot.command('test', '/test')\n" +
   '  public test(source: CommandSource) {\n' +
   "    source.success('test');\n" +
   '  }\n' +
+  '\n' +
+  "  @bot.subscribe('websocket-message')\n" +
+  '  public onWebsocketMsg(bot: HeyBoxBot, msg: RawData) {\n' +
+  "    console.log(msg.toString('utf-8'));\n" +
+  '  }\n' +
   '}\n' +
   '\n' +
   'const myBot: MyBot = new MyBot();\n' +
   '\n' +
-  'bot.start();';
+  'bot.start();\n';
 if (args.findIndex(arg => arg === 'init')) init();
 
 function init() {
@@ -150,4 +154,5 @@ function init() {
   if (!fs.existsSync(nodemonJson)) fs.writeFileSync(nodemonJson, JSON.stringify(initNodemonJson, null, 2));
   const indexTs = `${rootDirectory}/src/index.ts`;
   if (!fs.existsSync(indexTs)) fs.writeFileSync(indexTs, initIndexTs);
+  console.log('HeyBox Bot initialized!');
 }
