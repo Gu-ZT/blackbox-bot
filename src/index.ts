@@ -4,23 +4,58 @@ import * as process from 'node:process';
 import { BotConfig } from './config';
 import { Constants } from './constants/constants';
 import { CustomCommandManager } from './command';
+import { CommandSource } from 'gugle-command/src';
 
+/**
+ * `HeyBoxBot` 类代表一个聊天机器人，用于处理命令和事件
+ */
+// noinspection JSUnusedGlobalSymbols
 export class HeyBoxBot {
+  /**
+   * 机器人配置对象，包含机器人运行所需的各种配置信息
+   */
   private readonly config: BotConfig;
+
+  /**
+   * 命令管理器，用于处理和管理机器人接收到的各种命令
+   */
   private readonly commandManager: CustomCommandManager;
+
+  /**
+   * 事件管理器，用于处理和管理机器人接收到的各种事件
+   */
   private readonly eventManager: EventManager;
+
+  /**
+   * WebSocket连接，用于与服务器进行实时通信
+   */
   private readonly ws: WebSocket;
+
+  /**
+   * 标记WebSocket连接是否已打开
+   */
   private wsOpened: boolean = false;
 
-  public constructor(config: BotConfig = {} as BotConfig) {
+  /**
+   * 构造函数，用于初始化机器人实例
+   * @param config {BotConfig} 机器人配置对象，包含机器人运行所需的各种配置信息
+   */
+  public constructor(config: BotConfig) {
+    // 将传入的配置对象赋值给实例变量config
     this.config = config;
+    // 初始化命令管理器实例
     this.commandManager = new CustomCommandManager();
+    // 初始化事件管理器实例
     this.eventManager = new EventManager();
+    // 根据WebSocketURL模板和当前配置的token创建WebSocket连接
     this.ws = new WebSocket(
       `${Constants.WSS_URL}${Constants.COMMON_PARAMS}${Constants.TOKEN_PARAMS}${this.config.token}`
     );
+    // 当WebSocket连接打开时，启动定时器每30秒发送一个PING保持连接
     this.ws.on('open', () => {
+      // 标记WebSocket连接已打开
       this.wsOpened = true;
+      // 定义并启动PING发送定时器
       const ping = () => {
         this.ws.send('PING');
         setTimeout(ping, 30000);
@@ -29,20 +64,45 @@ export class HeyBoxBot {
     });
   }
 
+  /**
+   * 异步启动方法，用于启动HeyBoxBot实例
+   * 此方法允许指定一个可选的路径参数，默认为当前工作目录
+   * 它在启动前后分别触发一系列事件，并设置WebSocket消息监听器
+   *
+   * @param {string} path - 启动的目录路径，默认为当前工作目录
+   * @returns {Promise<HeyBoxBot>} 返回实例本身，允许链式调用
+   */
   public async start(path: string = process.cwd()): Promise<HeyBoxBot> {
+    // 在启动前触发'before-start'事件，传递当前实例和路径作为参数
     await this.post('before-start', this, path).then(args => {
+      // 根据'before-start'事件处理结果更新路径
       path = args[1];
+      // 设置WebSocket消息监听器
       this.ws.on('message', event => {
+        // 当接收到WebSocket消息时，触发'websocket-message'事件
         this.post('websocket-message', this, event);
       });
+      // 在启动后触发'after-start'事件，传递当前实例作为参数
       this.post('after-start', this).then();
     });
+    // 返回实例本身，支持链式调用
     return this;
   }
 
+  /**
+   * 停止HeyBoxBot实例
+   *
+   * 此方法在停止机器人之前和之后执行一些钩子函数，确保资源被适当管理
+   * 如果WebSocket连接是打开的状态，则会关闭该连接
+   *
+   * @returns {HeyBoxBot} 返回HeyBoxBot实例，允许链式调用
+   */
   public stop(): HeyBoxBot {
+    // 在停止之前触发'before-start'事件，传递当前实例
     this.post('before-start', this).then(() => {
+      // 如果WebSocket连接是打开的状态，关闭连接
       if (this.wsOpened) this.ws.close();
+      // 在停止之后触发'after-stop'事件，传递当前实例
       this.post('after-stop', this).then();
     });
     return this;
@@ -92,7 +152,7 @@ export class HeyBoxBot {
           root = cmdNode;
         } else {
           // 通过then方法将当前节点链接到前一个节点，形成树状结构
-          curNode!.then(cmdNode);
+          if (curNode) curNode.then(cmdNode);
         }
         // 更新当前节点为下一个节点
         curNode = cmdNode;
@@ -102,6 +162,20 @@ export class HeyBoxBot {
       // 将构建完成的根节点注册到命令管理器中
       self.commandManager.register(namespace, root!);
     };
+  }
+
+  /**
+   * 执行给定的命令。
+   *
+   * 此方法提供了一个接口来执行命令，它将命令执行的请求委托给命令管理器。
+   * 它主要用于在应用程序中提供一个统一的入口来执行命令，而不需要直接与命令管理器交互。
+   *
+   * @param source - 命令源，表示命令从何而来，用于命令的执行上下文。
+   * @param command - 要执行的命令字符串。此命令应遵循内部约定或格式，以便正确解析和执行。
+   * @returns 返回命令执行的结果。具体类型和结构取决于命令管理器如何执行给定的命令。
+   */
+  public executeCommand(source: CommandSource, command: string) {
+    return this.commandManager.execute(source, command);
   }
 
   /**

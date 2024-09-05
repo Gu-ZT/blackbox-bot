@@ -26,7 +26,7 @@
     "@babel/plugin-proposal-decorators": "^7.24.7",
     "@babel/preset-env": "^7.25.4",
     "axios": "^1.7.7",
-    "gugle-command": "^1.1.11",
+    "gugle-command": "^1.1.12",
     "gugle-event": "^1.1.5",
     "ws": "^8.18.0"
   },

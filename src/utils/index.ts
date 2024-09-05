@@ -1,3 +1,5 @@
+// noinspection JSUnusedGlobalSymbols
+
 import { Constants } from '../constants/constants';
 import axios, { AxiosResponse } from 'axios';
 import { ChannelImSendReq, Response } from '../type/define';

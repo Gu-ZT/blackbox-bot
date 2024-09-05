@@ -1,3 +1,5 @@
+// noinspection JSUnusedGlobalSymbols
+
 export interface ResponseResult {
   chatmobile_ack_id: string;
   heychat_ack_id: string;
