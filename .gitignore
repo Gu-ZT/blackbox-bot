@@ -21,3 +21,7 @@ dist
 *.sw?
 
 pnpm-lock.yaml
+
+/run/
+/src/**/*.js
+/src/**/*.d.js

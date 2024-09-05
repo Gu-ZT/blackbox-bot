@@ -1,5 +1,5 @@
 import { CommandManager } from 'gugle-command';
-import { EventManager } from 'gugle-event';
+import { EventManager, Cancelable } from 'gugle-event';
 import { WebSocket } from 'ws';
 import * as process from 'node:process';
 import * as fs from 'node:fs';
@@ -46,26 +46,16 @@ class CustomCommandManager extends CommandManager {
 }
 
 class Plugin {
-  private readonly single: boolean;
-
-  public constructor(single: boolean = false) {
-    this.single = single;
-  }
-
-  public isSingle(): boolean {
-    return this.single;
-  }
+  public constructor() {}
 }
 
 class PluginManager {
   public rootDirectory: string = process.cwd();
   public readonly plugins: Plugin[] = [];
   public readonly bot: HeyBoxBot;
-  private readonly single: boolean;
 
-  public constructor(bot: HeyBoxBot, single: boolean) {
+  public constructor(bot: HeyBoxBot) {
     this.bot = bot;
-    this.single = single;
   }
 
   public registerPlugin(plugin: Plugin): PluginManager {
@@ -99,44 +89,45 @@ class PluginManager {
   }
 }
 
-export interface BotConfig {
-  single?: boolean;
-  wss?: string;
+export class BotConfig {
+  wss: string = 'wss://chat.xiaoheihe.cn/chatroom/ws/connect';
 }
 
 export class HeyBoxBot {
-  private static instance: HeyBoxBot;
   private readonly commandManager: CustomCommandManager;
   private readonly eventManager: EventManager;
   private readonly pluginManager: PluginManager;
   private readonly ws: WebSocket;
 
-  private constructor(config: BotConfig = {}) {
+  public constructor(config: BotConfig = new BotConfig()) {
     this.commandManager = new CustomCommandManager();
     this.eventManager = new EventManager();
-    this.pluginManager = new PluginManager(this, !!config.single);
-    this.ws = new WebSocket(config.wss ? config.wss : 'ws://127.0.0.1:8080');
+    this.pluginManager = new PluginManager(this);
+    this.ws = new WebSocket(config.wss);
   }
 
-  public static getInstance(): HeyBoxBot {
-    if (!HeyBoxBot.instance) HeyBoxBot.instance = new HeyBoxBot();
-    return HeyBoxBot.instance;
+  public static create(config: BotConfig = new BotConfig()): HeyBoxBot {
+    return new HeyBoxBot(config);
   }
 
-  public static loadPlugin(plugin: Plugin): HeyBoxBot {
-    let bot = plugin.isSingle() ? new HeyBoxBot() : HeyBoxBot.getInstance();
-    bot.pluginManager.load(plugin);
-    return bot;
+  public loadPlugin(plugin: Plugin): HeyBoxBot {
+    this.pluginManager.load(plugin);
+    return this;
   }
 
   public async start(path: string = process.cwd()): Promise<HeyBoxBot> {
+    await this.post('before-start', this, path).then(args => {
+      path = args[1];
+    });
     this.pluginManager.setRootDirectory(path);
     this.pluginManager.init();
+    await this.post('after-start', this);
     return this;
   }
 
   public stop(): HeyBoxBot {
     // ...
+    this.post('after-stop', this).then();
     return this;
   }
 
@@ -151,8 +142,8 @@ export class HeyBoxBot {
    * 遍历这些节点构建命令的解析树，最后将构建的根节点注册到命令管理器中
    *
    * @example
-   * @ bot.command('/test command {arg0: NUMBER} run {arg1: STRING} set {arg2: BOOLEAN}')
-   * function testCommand(arg0: number, arg1: string, arg2: boolean) {}
+   * @ bot.command('test', '/test command {arg0: NUMBER} run {arg1: STRING} set {arg2: BOOLEAN}')
+   * function testCommand(source:CommandSource, arg0: number, arg1: string, arg2: boolean) {}
    */
   public command(namespace: string, command: string): Function {
     // 当前命令管理器实例的别名，用于内部函数中引用
@@ -197,23 +188,29 @@ export class HeyBoxBot {
   }
 
   /**
-   * 静态方法：为命令注册一个处理函数
-   *
-   * 此方法使用装饰器语法糖来注册命令处理函数，简化了命令的注册过程
-   * 它会返回一个函数，该函数实际上是在命令命名空间下注册特定命令的处理函数
-   *
-   * @param namespace 命令的命名空间，用于归类命令
-   * @param command 命令的模式字符串，包括命令路径和参数模式
-   * @returns 返回一个函数，该函数在调用时会注册命令处理函数
-   *
-   * @example
-   * @ HeyBoxBot.command('/test command {arg0: NUMBER} run {arg1: STRING} set {arg2: BOOLEAN}')
-   * function testCommand(arg0: number, arg1: string, arg2: boolean) {}
+   * 发布一个事件，触发该事件的所有监听器
+   * @param event {string} 事件名称
+   * @param args {...args: any} 传递给事件回调的参数
+   * @returns {any[]} 事件回调的返回值（如果有）
    */
-  public static command(namespace: string, command: string): Function {
-    return HeyBoxBot.getInstance().command(namespace, command);
+  public async post(event: string, ...args: any): Promise<any[]> {
+    return await this.eventManager.post(event, ...args);
+  }
+
+  /**
+   * 订阅一个事件，返回一个函数，该函数用于添加事件回调
+   * @param event {string} 事件名称
+   * @param namespace {string} 命名空间，用于组织事件监听器
+   * @param priority {number} 优先级，决定事件回调的执行顺序
+   * @param cancelable {boolean} 是否可取消，决定是否可以取消事件，为 true 时，处理器第一个参数会传入 {@link Cancelable}
+   * @returns {(callback: (...args: any) => void) => void} 一个函数，接受事件回调并注册该回调到指定事件
+   */
+  public subscribe(
+    event: string,
+    namespace: string = 'gugle-event',
+    priority: number = 100,
+    cancelable: boolean = false
+  ): (callback: (...args: any) => void) => void {
+    return this.eventManager.subscribe(event, namespace, priority, cancelable);
   }
 }
-
-export const bot = HeyBoxBot.getInstance();
-bot.start();
