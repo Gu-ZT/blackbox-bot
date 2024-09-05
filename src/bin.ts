@@ -19,7 +19,7 @@ const initPackageJson = {
   author: 'author',
   license: 'LGPL-3.0-or-later',
   dependencies: {
-    'heybox-bot': '^1.0.12'
+    'heybox-bot': '^1.0.13'
   },
   devDependencies: {
     '@eslint/js': '^9.9.1',
@@ -104,7 +104,24 @@ const initEslintConfigMjs =
   '    ]\n' +
   '  }\n' +
   '];\n';
-const initIndexTs = '';
+const initIndexTs =
+  "import { BotConfig, HeyBoxBot } from '.';\n" +
+  "import { CommandSource } from 'gugle-command';\n" +
+  '\n' +
+  'const config: BotConfig = new BotConfig();\n' +
+  "config.token = 'your token';\n" +
+  'const bot: HeyBoxBot = new HeyBoxBot(config);\n' +
+  '\n' +
+  'class MyBot {\n' +
+  "  @bot.command('test', '/test')\n" +
+  '  public test(source: CommandSource) {\n' +
+  "    source.success('test');\n" +
+  '  }\n' +
+  '}\n' +
+  '\n' +
+  'const myBot: MyBot = new MyBot();\n' +
+  '\n' +
+  'bot.start();';
 if (args.findIndex(arg => arg === 'init')) init();
 
 function init() {

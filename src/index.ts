@@ -90,20 +90,23 @@ class PluginManager {
 }
 
 export class BotConfig {
+  token?: string = undefined;
   wss: string = 'wss://chat.xiaoheihe.cn/chatroom/ws/connect';
 }
 
 export class HeyBoxBot {
+  private readonly config: BotConfig;
   private readonly commandManager: CustomCommandManager;
   private readonly eventManager: EventManager;
   private readonly pluginManager: PluginManager;
   private readonly ws: WebSocket;
 
   public constructor(config: BotConfig = new BotConfig()) {
+    this.config = config;
     this.commandManager = new CustomCommandManager();
     this.eventManager = new EventManager();
     this.pluginManager = new PluginManager(this);
-    this.ws = new WebSocket(config.wss);
+    this.ws = new WebSocket(this.config.wss);
   }
 
   public static create(config: BotConfig = new BotConfig()): HeyBoxBot {
