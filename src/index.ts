@@ -100,6 +100,7 @@ export class HeyBoxBot {
   private readonly eventManager: EventManager;
   private readonly pluginManager: PluginManager;
   private readonly ws: WebSocket;
+  private wsOpened: boolean = false;
 
   public constructor(config: BotConfig = new BotConfig()) {
     this.config = config;
@@ -107,6 +108,14 @@ export class HeyBoxBot {
     this.eventManager = new EventManager();
     this.pluginManager = new PluginManager(this);
     this.ws = new WebSocket(this.config.wss);
+    this.ws.on('open', () => {
+      this.wsOpened = true;
+      const ping = () => {
+        this.ws.send('PING');
+        setTimeout(ping, 300000);
+      };
+      ping();
+    });
   }
 
   public static create(config: BotConfig = new BotConfig()): HeyBoxBot {
@@ -127,7 +136,6 @@ export class HeyBoxBot {
     this.ws.on('message', event => {
       this.post('websocket-message', this, event);
     });
-    this.ws.send('PING');
     await this.post('after-start', this);
     return this;
   }
