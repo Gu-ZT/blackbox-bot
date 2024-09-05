@@ -1,13 +1,10 @@
-import { CommandManager } from 'gugle-command';
+import { CommandManager, CommandSource } from 'gugle-command';
 import { EventManager, Cancelable } from 'gugle-event';
-import { WebSocket } from 'ws';
+import { RawData, WebSocket } from 'ws';
 import * as process from 'node:process';
 import * as fs from 'node:fs';
 import { Arguments, CommandNode } from 'gugle-command/src';
-
-export class Constants {
-  public static readonly pluginPath = 'plugins';
-}
+import { Index } from './constants';
 
 class CustomCommandManager extends CommandManager {
   public constructor() {
@@ -79,7 +76,7 @@ class PluginManager {
   }
 
   public init(): PluginManager {
-    const pluginsPath = `${this.rootDirectory}/${Constants.pluginPath}`;
+    const pluginsPath = `${this.rootDirectory}/${Index.PLUGIN_PATH}`;
     if (!fs.existsSync(pluginsPath)) fs.mkdirSync(pluginsPath);
     return this;
   }
@@ -91,7 +88,7 @@ class PluginManager {
 
 export class BotConfig {
   token?: string = undefined;
-  wss: string = 'wss://chat.xiaoheihe.cn/chatroom/ws/connect';
+  wss: string = `${Index.WSS_URL}${Index.COMMON_PARAMS}${Index.TOKEN_PARAMS}`;
 }
 
 export class HeyBoxBot {
@@ -107,12 +104,12 @@ export class HeyBoxBot {
     this.commandManager = new CustomCommandManager();
     this.eventManager = new EventManager();
     this.pluginManager = new PluginManager(this);
-    this.ws = new WebSocket(this.config.wss);
+    this.ws = new WebSocket(`${this.config.wss}${this.config.token}`);
     this.ws.on('open', () => {
       this.wsOpened = true;
       const ping = () => {
         this.ws.send('PING');
-        setTimeout(ping, 300000);
+        setTimeout(ping, 30000);
       };
       ping();
     });
@@ -229,3 +226,23 @@ export class HeyBoxBot {
     return this.eventManager.subscribe(event, namespace, priority, cancelable);
   }
 }
+
+const config: BotConfig = new BotConfig();
+config.token = 'NzIxNjM1MjY7MTcyNTUxMDg0OTk1NDUwMzQ4NDs1MTg5MDEzOTkwNTE1OTU1NzQ=';
+const bot: HeyBoxBot = new HeyBoxBot(config);
+
+class MyBot {
+  @bot.command('test', '/test')
+  public test(source: CommandSource) {
+    source.success('test');
+  }
+
+  @bot.subscribe('websocket-message')
+  public onWebsocketMsg(bot: HeyBoxBot, msg: RawData) {
+    console.log(msg.toString('utf-8'));
+  }
+}
+
+const myBot: MyBot = new MyBot();
+
+bot.start();

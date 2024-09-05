@@ -15,7 +15,7 @@
     "frame"
   ],
   "bin": {
-    "heybox": "src/bin.js"
+    "heybox": "src/bin/index.js"
   },
   "author": "Gugle",
   "license": "LGPL-3.0-or-later",
