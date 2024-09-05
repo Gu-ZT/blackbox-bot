@@ -14,6 +14,7 @@
 cd your/project/path
 npm i -g heybox-bot
 heybox --init
+npm i
 ```
 
 ### Configuration
