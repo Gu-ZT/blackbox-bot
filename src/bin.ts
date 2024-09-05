@@ -19,7 +19,7 @@ const initPackageJson = {
   author: 'author',
   license: 'LGPL-3.0-or-later',
   dependencies: {
-    'heybox-bot': '^1.0.15'
+    'heybox-bot': '^1.0.16'
   },
   devDependencies: {
     '@eslint/js': '^9.9.1',
@@ -104,6 +104,12 @@ const initEslintConfigMjs =
   '    ]\n' +
   '  }\n' +
   '];\n';
+const initNodemonJson = {
+  watch: ['src'],
+  ext: '.ts',
+  exec: 'ts-node --files src/index.ts'
+};
+
 const initIndexTs =
   "import { BotConfig, HeyBoxBot } from 'heybox-bot';\n" +
   "import { CommandSource } from 'gugle-command';\n" +
@@ -140,6 +146,8 @@ function init() {
   if (!fs.existsSync(prettierrcJs)) fs.writeFileSync(prettierrcJs, initPrettierrcJs);
   const eslintConfigMjs = `${rootDirectory}/eslint.config.mjs`;
   if (!fs.existsSync(eslintConfigMjs)) fs.writeFileSync(eslintConfigMjs, initEslintConfigMjs);
+  const nodemonJson = `${rootDirectory}/nodemon.json`;
+  if (!fs.existsSync(nodemonJson)) fs.writeFileSync(nodemonJson, JSON.stringify(initNodemonJson, null, 2));
   const indexTs = `${rootDirectory}/src/index.ts`;
   if (!fs.existsSync(indexTs)) fs.writeFileSync(indexTs, initIndexTs);
 }
