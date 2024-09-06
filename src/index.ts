@@ -4,7 +4,7 @@ import * as process from 'node:process';
 import { BotConfig } from './config';
 import { Constants } from './constants/constants';
 import { CustomCommandManager } from './command';
-import { CommandSource } from 'gugle-command';
+import { CommandSource, CommandManager } from 'gugle-command';
 import { Logger } from 'winston';
 import dayjs from 'dayjs';
 import { TextMessage, UserBaseInfo, UserImMessage, WebSocketMessage } from './type/define';
@@ -205,7 +205,6 @@ export class HeyBoxBot {
    *
    * @param source - 命令源，表示命令从何而来，用于命令的执行上下文。
    * @param command - 要执行的命令字符串。此命令应遵循内部约定或格式，以便正确解析和执行。
-   * @returns 返回命令执行的结果。具体类型和结构取决于命令管理器如何执行给定的命令。
    */
   public executeCommand(source: CommandSource, command: string) {
     this.logger!.debug(`${source.getName()} execute command: ${command}`);
@@ -242,30 +241,55 @@ export class HeyBoxBot {
     return this.eventManager.subscribe(event, namespace, priority, cancelable);
   }
 
+  /**
+   * 处理WebSocket消息的函数
+   * 该函数解析从WebSocket接收到的消息，并根据消息内容执行相应操作
+   * @param bot {HeyBoxBot} HeyBoxBot实例，用于访问机器人的功能和属性
+   * @param data {RawData} 从WebSocket接收到的原始数据
+   */
   private onWebsocketMsg(bot: HeyBoxBot, data: RawData) {
+    // 将接收到的原始数据转换为UTF-8字符串，并记录调试信息
     const msg = data.toString('utf-8');
     bot.logger!.debug(msg);
+
+    // 如果消息是"PONG"，则重置心跳次数
     if (msg === 'PONG') {
       bot.heartbeatTimes = 0;
       return;
     }
+
+    // 如果消息是JSON格式，则尝试解析并处理
     if (msg.startsWith('{') && msg.endsWith('}')) {
       try {
+        // 解析JSON消息，并检查通知类型是否为用户消息
         const data: WebSocketMessage = JSON.parse(msg);
         if (data.notify_type === 'USER_IM_MESSAGE') {
+          // 处理用户消息
           const userMsg: UserImMessage = data.data;
           const user: UserBaseInfo = userMsg.user_info.user_base_info;
           bot.post('user-message', bot, user, userMsg);
         }
       } catch (e) {
+        // 如果解析过程中出现错误，记录错误信息
         bot.logger!.error(e);
       }
     }
   }
 
+  /**
+   * 处理用户消息的函数
+   * 该函数记录用户发送的消息，并检查是否以命令前缀开头，如果是，则执行相应命令
+   * @param bot {HeyBoxBot} HeyBoxBot实例，用于访问机器人的功能和属性
+   * @param user {UserBaseInfo} 发送消息的用户信息
+   * @param userMsg {UserImMessage} 用户发送的消息内容
+   */
   private onUserMessage(bot: HeyBoxBot, user: UserBaseInfo, userMsg: UserImMessage) {
+    // 记录用户消息信息
     bot.logger!.info(`[${user.nickname}|${user.user_id}] ${userMsg.msg}`);
+
+    // 如果消息以命令前缀开头，则执行对应命令
     if (userMsg.msg.startsWith(bot.commandManager.prefix)) {
+      // 创建并执行命令
       bot.executeCommand(
         UserImMessageImpl.create(msg => sendMessage(bot.config.token, msg), userMsg),
         userMsg.msg
