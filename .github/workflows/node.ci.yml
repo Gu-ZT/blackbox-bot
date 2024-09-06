@@ -55,7 +55,7 @@ jobs:
       - name: Init project
         run: pnpm i
       - name: Build project
-        run: tsc src/index.ts && tsc --declaration src/index.ts
+        run: pnpm run build
       - name: Push to npm repository
         run: npm publish
         env:

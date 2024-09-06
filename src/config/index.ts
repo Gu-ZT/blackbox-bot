@@ -1,3 +1,4 @@
 export interface BotConfig {
-  token?: string;
+  token: string;
+  logLevel?: 'debug' | 'info' | 'warn' | 'error';
 }

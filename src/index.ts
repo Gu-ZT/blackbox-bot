@@ -1,16 +1,27 @@
 import { EventManager, Cancelable } from 'gugle-event';
-import { WebSocket } from 'ws';
+import { RawData, WebSocket } from 'ws';
 import * as process from 'node:process';
 import { BotConfig } from './config';
 import { Constants } from './constants/constants';
 import { CustomCommandManager } from './command';
-import { CommandSource } from 'gugle-command/src';
+import { CommandSource } from 'gugle-command';
+import { Logger } from 'winston';
+import dayjs from 'dayjs';
+import { TextMessage, UserBaseInfo, UserImMessage, WebSocketMessage } from './type/define';
+import { hashDJB2, SeededRandom, sendMessage } from './utils';
+import { UserImMessageImpl } from './type/impl';
+import { LoggerFactory } from './logger';
+import * as fs from 'node:fs';
 
 /**
  * `HeyBoxBot` 类代表一个聊天机器人，用于处理命令和事件
  */
 // noinspection JSUnusedGlobalSymbols
 export class HeyBoxBot {
+  private path: string = process.cwd();
+  private logger?: Logger;
+  private heartbeatTimes: number = 0;
+
   /**
    * 机器人配置对象，包含机器人运行所需的各种配置信息
    */
@@ -49,7 +60,7 @@ export class HeyBoxBot {
     this.eventManager = new EventManager();
     // 根据WebSocketURL模板和当前配置的token创建WebSocket连接
     this.ws = new WebSocket(
-      `${Constants.WSS_URL}${Constants.COMMON_PARAMS}${Constants.TOKEN_PARAMS}${this.config.token}`
+      `${Constants.WSS_URL}${Constants.COMMON_PARAMS}${Constants.TOKEN_PARAMS}${this.config.token || ''}`
     );
     // 当WebSocket连接打开时，启动定时器每30秒发送一个PING保持连接
     this.ws.on('open', () => {
@@ -57,7 +68,13 @@ export class HeyBoxBot {
       this.wsOpened = true;
       // 定义并启动PING发送定时器
       const ping = () => {
+        if (this.heartbeatTimes > 5) {
+          this.logger?.error('WebSocket connection lost, reconnecting...');
+          this.ws.terminate();
+          return;
+        }
         this.ws.send('PING');
+        this.heartbeatTimes += 1;
         setTimeout(ping, 30000);
       };
       ping();
@@ -77,6 +94,22 @@ export class HeyBoxBot {
     await this.post('before-start', this, path).then(args => {
       // 根据'before-start'事件处理结果更新路径
       path = args[1];
+      this.path = path;
+      const logPath = `${this.path}/logs`;
+      if (!fs.existsSync(logPath)) fs.mkdirSync(logPath);
+      if (fs.existsSync(`${logPath}/latest.log`)) {
+        let logName = `${logPath}/${dayjs().format('YYYY-MM-DD-HH-mm-ss')}.log`;
+        let count = 0;
+        while (fs.existsSync(logName)) {
+          count++;
+          logName = `${logPath}/${dayjs().format('YYYY-MM-DD-HH-mm-ss')}-${count}.log`;
+        }
+        fs.renameSync(`${logPath}/latest.log`, logName);
+      }
+      this.logger = LoggerFactory.createLogger('HeyBoxBot', logPath, this.config.logLevel || 'info');
+      this.logger.info(`HeyBox Bot starting...`);
+      this.eventManager.listen('websocket-message', this.onWebsocketMsg);
+      this.eventManager.listen('user-message', this.onUserMessage);
       // 设置WebSocket消息监听器
       this.ws.on('message', event => {
         // 当接收到WebSocket消息时，触发'websocket-message'事件
@@ -132,7 +165,7 @@ export class HeyBoxBot {
       }
       // 去除前缀后，分割并处理命令字符串
       const commands = command.substring(self.commandManager.prefix.length);
-      const nodes = commands.split(' ');
+      const nodes = commands.split(/(?<!:)\s/);
       // 再次校验命令的有效性
       if (nodes.length <= 0) {
         throw new Error('Invalid command');
@@ -175,7 +208,11 @@ export class HeyBoxBot {
    * @returns 返回命令执行的结果。具体类型和结构取决于命令管理器如何执行给定的命令。
    */
   public executeCommand(source: CommandSource, command: string) {
-    return this.commandManager.execute(source, command);
+    this.logger!.debug(`${source.getName()} execute command: ${command}`);
+    this.post('before-command', this, source, command).then(() => {
+      this.commandManager.execute(source, command);
+      this.post('after-command', this, source, command).then();
+    });
   }
 
   /**
@@ -203,5 +240,40 @@ export class HeyBoxBot {
     cancelable: boolean = false
   ): (callback: (...args: any) => void) => void {
     return this.eventManager.subscribe(event, namespace, priority, cancelable);
+  }
+
+  private onWebsocketMsg(bot: HeyBoxBot, data: RawData) {
+    const msg = data.toString('utf-8');
+    bot.logger!.debug(msg);
+    if (msg === 'PONG') {
+      bot.heartbeatTimes = 0;
+      return;
+    }
+    if (msg.startsWith('{') && msg.endsWith('}')) {
+      try {
+        const data: WebSocketMessage = JSON.parse(msg);
+        if (data.notify_type === 'USER_IM_MESSAGE') {
+          const userMsg: UserImMessage = data.data;
+          const user: UserBaseInfo = userMsg.user_info.user_base_info;
+          bot.post('user-message', bot, user, userMsg);
+        }
+      } catch (e) {
+        bot.logger!.error(e);
+      }
+    }
+  }
+
+  private onUserMessage(bot: HeyBoxBot, user: UserBaseInfo, userMsg: UserImMessage) {
+    bot.logger!.info(`[${user.nickname}|${user.user_id}] ${userMsg.msg}`);
+    if (userMsg.msg.startsWith(bot.commandManager.prefix)) {
+      bot.executeCommand(
+        UserImMessageImpl.create(msg => sendMessage(bot.config.token, msg), userMsg),
+        userMsg.msg
+      );
+    }
+  }
+
+  public sendMsg(msg: TextMessage) {
+    sendMessage(this.config.token, msg);
   }
 }

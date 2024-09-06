@@ -9,8 +9,8 @@ const initPackageJson = {
   name: 'bot-name',
   version: '1.0.0',
   description: '',
-  main: 'src/index.js',
-  types: 'src/index.d.ts',
+  main: 'src/define.js',
+  types: 'src/define.d.ts',
   scripts: {
     dev: 'pnpx nodemon exec babel-node',
     build: 'tsc --declaration'
@@ -106,7 +106,7 @@ const initEslintConfigMjs =
 const initNodemonJson = {
   watch: ['src'],
   ext: '.ts',
-  exec: 'ts-node --files src/index.ts'
+  exec: 'ts-node --files src/define.ts'
 };
 
 const initIndexTs =

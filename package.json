@@ -26,13 +26,17 @@
     "@babel/plugin-proposal-decorators": "^7.24.7",
     "@babel/preset-env": "^7.25.4",
     "axios": "^1.7.7",
-    "gugle-command": "^1.1.12",
+    "dayjs": "^1.11.13",
+    "gugle-command": "^1.1.16",
     "gugle-event": "^1.1.5",
+    "logform": "^2.6.1",
+    "winston": "^3.14.2",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
     "@types/nodemon": "^1.19.6",
+    "@types/winston": "^2.4.4",
     "@types/ws": "^8.5.12",
     "eslint": "^9.9.1",
     "eslint-config-prettier": "^9.1.0",

@@ -19,7 +19,7 @@ npm i
 
 ### Configuration
 
-* `your/project/path/src/index.ts`
+* `your/project/path/src/define.ts`
 
 ```typescript
 import { HeyBoxBot } from 'heybox-bot';
