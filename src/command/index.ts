@@ -1,5 +1,6 @@
 import { Arguments, CommandManager, CommandNode } from 'gugle-command';
 import { Logger } from 'winston';
+import { CommandMessage } from '../type/define';
 
 export class CustomCommandManager extends CommandManager {
   public constructor() {
@@ -51,7 +52,7 @@ class HeyBoxCommandArgument<T> {
   }
 
   public parse(value: string): T | undefined {
-    return undefined;
+    return value as T;
   }
 
   public static parseArgument(argument: string): HeyBoxCommandArgument<any> {
@@ -94,13 +95,8 @@ class HeyBoxCommandOptionArgument<T extends string> extends HeyBoxCommandArgumen
   }
 
   public override parse(value: string): T | undefined {
-    let t: T | undefined = undefined;
-    for (const option of this.options) {
-      if (option === value) {
-        t = option;
-      }
-    }
-    return t;
+    if (!this.options.includes(value as T)) return value as T;
+    else return undefined;
   }
 }
 
@@ -180,7 +176,16 @@ export class HeyBoxCommandManager {
     this.commands.set(command.name, command);
   }
 
-  public execute(command: any): void {}
+  public execute(command: CommandMessage): void {
+    const commandName = command.command_info.name;
+    if (this.commands.has(commandName)) {
+      const commandInfo = this.commands.get(commandName)!;
+      const args = command.command_info.options;
+      for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+      }
+    }
+  }
 
   public parse(command: string, permission: string | undefined = undefined) {
     if (!command.startsWith('/')) throw new Error('Invalid command');

@@ -1,14 +1,14 @@
-import { EventManager, Cancelable } from 'gugle-event';
+import { EventManager } from 'gugle-event';
 import { RawData, WebSocket } from 'ws';
 import * as process from 'node:process';
 import { BotConfig } from './config';
 import { Constants } from './constants/constants';
 import { CustomCommandManager } from './command';
-import { CommandSource, CommandManager } from 'gugle-command';
+import { CommandSource } from 'gugle-command';
 import { Logger } from 'winston';
 import dayjs from 'dayjs';
-import { TextMessage, UserBaseInfo, UserImMessage, WebSocketMessage } from './type/define';
-import { hashDJB2, SeededRandom, sendMessage } from './utils';
+import { CommandMessage, TextMessage, UserBaseInfo, UserImMessage, WebSocketMessage } from './type/define';
+import { sendMessage } from './utils';
 import { UserImMessageImpl } from './type/impl';
 import { LoggerFactory } from './logger';
 import * as fs from 'node:fs';
@@ -110,6 +110,7 @@ export class HeyBoxBot {
       this.logger.info(`HeyBox Bot starting...`);
       this.eventManager.listen('websocket-message', this.onWebsocketMsg);
       this.eventManager.listen('user-message', this.onUserMessage);
+      this.eventManager.listen('command-message', this.onCommandMessage);
       // 设置WebSocket消息监听器
       this.ws.on('message', event => {
         // 当接收到WebSocket消息时，触发'websocket-message'事件
@@ -155,16 +156,16 @@ export class HeyBoxBot {
    * @ bot.command('test', '/test command {arg0: NUMBER} run {arg1: STRING} set {arg2: BOOLEAN}')
    * function testCommand(source:CommandSource, arg0: number, arg1: string, arg2: boolean) {}
    */
-  public command(namespace: string, command: string): Function {
+  public command(namespace: string, command: string): (executor: (...args: any) => void) => void {
     // 当前命令管理器实例的别名，用于内部函数中引用
-    const self = this;
+    const commandManager = this.commandManager;
     return function (executor: (...args: any) => void) {
       // 确保传入的命令字符串以正确的前缀开始
-      if (!command.startsWith(self.commandManager.prefix)) {
+      if (!command.startsWith(commandManager.prefix)) {
         throw new Error('Invalid command');
       }
       // 去除前缀后，分割并处理命令字符串
-      const commands = command.substring(self.commandManager.prefix.length);
+      const commands = command.substring(commandManager.prefix.length);
       const nodes = commands.split(/(?<!:)\s/);
       // 再次校验命令的有效性
       if (nodes.length <= 0) {
@@ -193,7 +194,7 @@ export class HeyBoxBot {
       // 将执行逻辑绑定到命令树的最深节点
       curNode!.execute(executor);
       // 将构建完成的根节点注册到命令管理器中
-      self.commandManager.register(namespace, root!);
+      commandManager.register(namespace, root!);
     };
   }
 
@@ -229,7 +230,7 @@ export class HeyBoxBot {
    * @param event {string} 事件名称
    * @param namespace {string} 命名空间，用于组织事件监听器
    * @param priority {number} 优先级，决定事件回调的执行顺序
-   * @param cancelable {boolean} 是否可取消，决定是否可以取消事件，为 true 时，处理器第一个参数会传入 {@link Cancelable}
+   * @param cancelable {boolean} 是否可取消，决定是否可以取消事件，为 true 时，处理器第一个参数会传入 Cancelable
    * @returns {(callback: (...args: any) => void) => void} 一个函数，接受事件回调并注册该回调到指定事件
    */
   public subscribe(
@@ -263,11 +264,15 @@ export class HeyBoxBot {
       try {
         // 解析JSON消息，并检查通知类型是否为用户消息
         const data: WebSocketMessage = JSON.parse(msg);
-        if (data.notify_type === 'USER_IM_MESSAGE') {
+        if (data.type === '5') {
           // 处理用户消息
-          const userMsg: UserImMessage = data.data;
+          const userMsg: UserImMessage = data.data as UserImMessage;
           const user: UserBaseInfo = userMsg.user_info.user_base_info;
-          bot.post('user-message', bot, user, userMsg);
+          bot.post('user-message', bot, user, userMsg).then();
+        } else if (data.type === '50') {
+          const commandMsg: CommandMessage = data.data as CommandMessage;
+          const user: UserBaseInfo = commandMsg.sender_info;
+          bot.post('command-message', bot, user, commandMsg).then();
         }
       } catch (e) {
         // 如果解析过程中出现错误，记录错误信息
@@ -295,6 +300,10 @@ export class HeyBoxBot {
         userMsg.msg
       );
     }
+  }
+
+  private onCommandMessage(bot: HeyBoxBot, user: UserBaseInfo, commandMsg: CommandMessage) {
+    bot.logger!.info(`[${user.nickname}|${user.user_id}] ${commandMsg.command_info.name}`);
   }
 
   public sendMsg(msg: TextMessage) {

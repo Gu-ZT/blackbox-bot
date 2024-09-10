@@ -18,26 +18,26 @@ export declare type UserInfo = {
 };
 
 export declare type ChannelBaseInfo = {
-  'channel_id': string;
-  'channel_name': string;
-  'channel_type': number;
+  channel_id: string;
+  channel_name: string;
+  channel_type: number;
 };
 
 export declare type RoomBaseInfo = {
-  'room_avatar': string;
-  'room_id': string;
-  'room_name': string;
+  room_avatar: string;
+  room_id: string;
+  room_name: string;
 };
 export declare type CommandOption = {
-  'name': string;
-  'type': number;
-  'value': string;
+  name: string;
+  type: number;
+  value: string;
 };
 export declare type CommandInfo = {
-  'id': string;
-  'name': string;
-  'options': CommandOption[];
-  'type': number;
+  id: string;
+  name: string;
+  options: CommandOption[];
+  type: number;
 };
 
 export declare type ResponseResult = {
@@ -56,8 +56,6 @@ export declare type AvatarDecoration = {
   src_url: string;
 };
 
-export declare type Message = {};
-
 export declare type TextMessage = {
   msg: string;
   msg_type: 10;
@@ -72,29 +70,28 @@ export declare type TextMessage = {
   channel_type: number;
 };
 
-export declare type UserImMessage = {
+export declare type WebSocketMessageData = {
+  msg_id: string;
+  send_time: number;
+};
+
+export declare type UserImMessage = WebSocketMessageData & {
   room_id: string;
   room_nickname: string;
   channel_id: string;
   channel_name: string;
   channel_type: number;
-  send_time: number;
   msg: string;
-  msg_id: string;
   user_info: UserInfo;
 };
 
-export declare type CommandMessage = {
-  'bot_id': number;
-  'channel_base_info': ChannelBaseInfo;
-  'command_info': CommandInfo;
-  'msg_id': string;
-  'room_base_info': RoomBaseInfo;
-  'send_time': number;
-  'sender_info': UserBaseInfo;
+export declare type CommandMessage = WebSocketMessageData & {
+  bot_id: number;
+  channel_base_info: ChannelBaseInfo;
+  command_info: CommandInfo;
+  room_base_info: RoomBaseInfo;
+  sender_info: UserBaseInfo;
 };
-
-export declare type WebSocketMessageData = UserImMessage | CommandMessage;
 
 export declare type WebSocketMessage = {
   sequence: number;
