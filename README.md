@@ -23,19 +23,17 @@ npm i
 
 ```typescript
 import { HeyBoxBot } from 'heybox-bot';
-import { CommandSource } from 'gugle-command';
+import { CommandSource } from 'heybox-bot/command';
 import { RawData } from 'ws';
 
 const bot: HeyBoxBot = new HeyBoxBot({ token: 'your token' }); // parse your bot token
 
-class MyBot {
-  @bot.command('test', '/test')
+new (class MyBot {
+  @bot.command('/hello')
   public test(source: CommandSource) {
-    source.success('test');
+    source.success('world');
   }
-}
-
-const myBot: MyBot = new MyBot();
+})()
 
 bot.start();
 ```
