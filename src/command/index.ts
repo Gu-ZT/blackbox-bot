@@ -1,41 +1,10 @@
-import { Arguments, CommandManager, CommandNode } from 'gugle-command';
-import { Logger } from 'winston';
-import { CommandMessage } from '../type/define';
+import { CommandMessage, ILogger, TextMessage } from '../type/define';
 
-export class CustomCommandManager extends CommandManager {
-  public constructor() {
-    super();
-  }
-
-  private static checkCharacters(chars: string): boolean {
-    const reg = /^[a-z]+[a-z0-9_-]*$/;
-    return reg.test(chars);
-  }
-
-  public static parseArgument(argument: string): (arg: string) => any {
-    switch (argument.trim()) {
-      case 'NUMBER':
-        return Arguments.NUMBER;
-      case 'STRING':
-        return Arguments.STRING;
-      case 'BOOLEAN':
-        return Arguments.BOOLEAN;
-      default:
-        throw new Error('Not implemented');
-    }
-  }
-
-  public static parseNode(node: string): CommandNode {
-    if (node.startsWith('{') && node.endsWith('}')) {
-      const nodes: string[] = node.substring(1, node.length - 1).split(':');
-      return CommandManager.argument(nodes[0], CustomCommandManager.parseArgument(nodes[1]));
-    } else {
-      if (CustomCommandManager.checkCharacters(node)) {
-        return CommandManager.literal(node);
-      }
-    }
-    throw new Error('Not implemented');
-  }
+export interface CommandSource {
+  success: (msg: TextMessage | string) => void;
+  fail: (msg: TextMessage | string) => void;
+  getName: () => string;
+  hasPermission: (permission: string) => boolean;
 }
 
 class HeyBoxCommandArgument<T> {
@@ -58,8 +27,8 @@ class HeyBoxCommandArgument<T> {
   public static parseArgument(argument: string): HeyBoxCommandArgument<any> {
     if (argument.startsWith('{') && argument.endsWith('}')) {
       const nodes: string[] = argument.substring(1, argument.length - 1).split(':');
-      let name = nodes[0];
-      const type = nodes[1];
+      let name = nodes[0].trim();
+      const type = nodes[1].trim();
       let required = false;
       if (name.endsWith('?')) {
         name = name.slice(0, -1);
@@ -82,7 +51,7 @@ class HeyBoxCommandArgument<T> {
         }
       }
     }
-    throw new Error('Not implemented');
+    throw new Error(`Not implemented, argument: ${argument}`);
   }
 }
 
@@ -161,10 +130,10 @@ class HeyBoxCommand {
 }
 
 export class HeyBoxCommandManager {
-  public readonly commands: Map<string, HeyBoxCommand> = new Map();
-  public readonly logger: Logger;
+  public readonly commands: Map<string, HeyBoxCommand> = new Map<string, HeyBoxCommand>();
+  public readonly logger: ILogger;
 
-  public constructor(logger: Logger) {
+  public constructor(logger: ILogger) {
     this.logger = logger;
   }
 
@@ -176,23 +145,40 @@ export class HeyBoxCommandManager {
     this.commands.set(command.name, command);
   }
 
-  public execute(command: CommandMessage): void {
+  public execute(command: CommandMessage, ...prefixArgs: any): void {
     const commandName = command.command_info.name;
     if (this.commands.has(commandName)) {
       const commandInfo = this.commands.get(commandName)!;
-      const args = command.command_info.options;
-      for (let i = 0; i < args.length; i++) {
-        const arg = args[i];
+      let argOptions = command.command_info.options;
+      const args: any = [];
+      for (let argument of commandInfo.arguments) {
+        let arg: any = undefined;
+        for (let i = 0; i < argOptions.length; i++) {
+          const argOption = argOptions[i];
+          if (argument.name === argOption.name) {
+            argOptions = argOptions.filter(option => option.name !== argOption.name);
+            arg = argument.parse(argOption.value);
+            if (arg === undefined) {
+              this.logger.error(`Argument ${argOption.name} is not valid in command ${commandName}`);
+              return;
+            }
+            break;
+          }
+        }
+        args.push(arg);
       }
+      commandInfo.executor(...prefixArgs, ...args);
     }
   }
 
-  public parse(command: string, permission: string | undefined = undefined) {
+  public parse(
+    command: string,
+    permission: string | undefined = undefined
+  ): (executor: (...args: any) => boolean) => void {
     if (!command.startsWith('/')) throw new Error('Invalid command');
-    const register = this.register;
+    const register = (command: HeyBoxCommand) => this.register(command);
     return function (executor: (...args: any) => boolean) {
       const commands = command.split(/(?<!:)\s/);
-      commands[0] = commands[0].slice(1);
       const heyBoxCommand = new HeyBoxCommand(commands[0], commands[0], executor, permission);
       for (let i = 1; i < commands.length; i++) {
         heyBoxCommand.arguments.push(HeyBoxCommandArgument.parseArgument(commands[i]));

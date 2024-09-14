@@ -1,5 +1,5 @@
-import { CommandSource } from 'gugle-command';
-import { TextMessage, UserImMessage, UserInfo } from './define';
+import { TextMessage, UserImMessage, UserInfo, WebSocketMessageData } from './define';
+import { CommandSource } from '../command';
 
 export class TextMessageImpl implements TextMessage {
   public readonly addition: '{"img_files_info":[]}' = '{"img_files_info":[]}';
@@ -78,11 +78,10 @@ export class TextMessageImpl implements TextMessage {
   }
 }
 
-export class UserImMessageImpl implements UserImMessage, CommandSource {
+export class MessageImpl implements WebSocketMessageData, CommandSource {
   public readonly channel_id: string;
   public readonly channel_name: string;
   public readonly channel_type: number;
-  public readonly msg: string;
   public readonly msg_id: string;
   public readonly room_id: string;
   public readonly room_nickname: string;
@@ -90,25 +89,32 @@ export class UserImMessageImpl implements UserImMessage, CommandSource {
   public readonly user_info: UserInfo;
   private readonly send: (msg: TextMessage) => void;
 
-  public constructor(sender: (msg: TextMessage) => void, data: UserImMessage) {
-    this.channel_id = data.channel_id;
-    this.channel_name = data.channel_name;
-    this.channel_type = data.channel_type;
-    this.msg = data.msg;
+  public constructor(
+    sender: (msg: TextMessage) => void,
+    data: WebSocketMessageData,
+    additional: {
+      channel_id: string;
+      channel_name: string;
+      channel_type: number;
+      room_id: string;
+      room_nickname: string;
+      user_info: UserInfo;
+    }
+  ) {
     this.msg_id = data.msg_id;
-    this.room_id = data.room_id;
-    this.room_nickname = data.room_nickname;
     this.send_time = data.send_time;
-    this.user_info = data.user_info;
+    this.channel_id = additional.channel_id;
+    this.channel_name = additional.channel_name;
+    this.channel_type = additional.channel_type;
+    this.room_id = additional.room_id;
+    this.room_nickname = additional.room_nickname;
+    this.user_info = additional.user_info;
     this.send = sender;
   }
 
-  public static create(sender: (msg: TextMessage) => void, data: UserImMessage): UserImMessageImpl {
-    return new UserImMessageImpl(sender, data);
-  }
-
-  public fail(msg: string): void {
-    this.reply(`fail: ${msg}`);
+  public fail(msg: TextMessage | string): void {
+    if (typeof msg === 'string') this.reply(`fail: ${msg}`);
+    else this.reply(msg);
   }
 
   public getName(): string {
@@ -116,21 +122,34 @@ export class UserImMessageImpl implements UserImMessage, CommandSource {
   }
 
   public hasPermission(permission: string): boolean {
-    return true;
+    return !!permission || true;
   }
 
-  public success(msg: string): void {
+  public success(msg: TextMessage | string): void {
     this.reply(msg);
   }
 
-  public reply(msg: string) {
-    this.send(
-      TextMessageImpl.create()
-        .text(msg)
-        .reply(this.msg_id)
-        .to(this.room_id, this.channel_id)
-        .at(this.user_info)
-        .covert()
-    );
+  public reply(msg: TextMessage | string) {
+    if (typeof msg === 'string') {
+      this.send(
+        TextMessageImpl.create()
+          .text(msg as string)
+          .reply(this.msg_id)
+          .to(this.room_id, this.channel_id)
+          .at(this.user_info)
+          .covert()
+      );
+    } else {
+      this.send(msg as TextMessage);
+    }
+  }
+}
+
+export class UserImMessageImpl extends MessageImpl implements UserImMessage, CommandSource {
+  public readonly msg: string;
+
+  public constructor(sender: (msg: TextMessage) => void, data: UserImMessage) {
+    super(sender, data, data);
+    this.msg = data.msg;
   }
 }

@@ -3,13 +3,12 @@ import { RawData, WebSocket } from 'ws';
 import * as process from 'node:process';
 import { BotConfig } from './config';
 import { Constants } from './constants/constants';
-import { CustomCommandManager } from './command';
-import { CommandSource } from 'gugle-command';
+import { HeyBoxCommandManager } from './command';
+import { MessageImpl, UserImMessageImpl } from './type/impl';
 import { Logger } from 'winston';
 import dayjs from 'dayjs';
 import { CommandMessage, TextMessage, UserBaseInfo, UserImMessage, WebSocketMessage } from './type/define';
 import { sendMessage } from './utils';
-import { UserImMessageImpl } from './type/impl';
 import { LoggerFactory } from './logger';
 import * as fs from 'node:fs';
 
@@ -30,7 +29,7 @@ export class HeyBoxBot {
   /**
    * 命令管理器，用于处理和管理机器人接收到的各种命令
    */
-  private readonly commandManager: CustomCommandManager;
+  private commandManager?: HeyBoxCommandManager;
 
   /**
    * 事件管理器，用于处理和管理机器人接收到的各种事件
@@ -54,10 +53,23 @@ export class HeyBoxBot {
   public constructor(config: BotConfig) {
     // 将传入的配置对象赋值给实例变量config
     this.config = config;
-    // 初始化命令管理器实例
-    this.commandManager = new CustomCommandManager();
     // 初始化事件管理器实例
     this.eventManager = new EventManager();
+    // 初始化命令管理器实例
+    this.commandManager = new HeyBoxCommandManager({
+      debug: msg => {
+        this.logger?.debug(msg);
+      },
+      info: msg => {
+        this.logger?.info(msg);
+      },
+      warning: msg => {
+        this.logger?.warning(msg);
+      },
+      error: msg => {
+        this.logger?.error(msg);
+      }
+    });
     // 根据WebSocketURL模板和当前配置的token创建WebSocket连接
     this.ws = new WebSocket(
       `${Constants.WSS_URL}${Constants.COMMON_PARAMS}${Constants.TOKEN_PARAMS}${this.config.token || ''}`
@@ -143,76 +155,27 @@ export class HeyBoxBot {
   }
 
   /**
-   * 定义一个命令装饰器，用于注册自定义命令
-   * @param namespace 命令的命名空间，用于区分不同的命令集
-   * @param command 命令的字符串表示，包括子命令和参数
-   * @returns 一个函数，该函数接受命令的执行逻辑作为参数
+   * 定义一个命令装饰器，用于在类中动态添加命令处理逻辑
    *
-   * 此装饰器函数的作用是解析命令字符串，并将命令的执行逻辑与命令结构关联起来
-   * 它首先检查命令是否以指定的前缀开始，然后分割命令字符串为多个节点，
-   * 遍历这些节点构建命令的解析树，最后将构建的根节点注册到命令管理器中
+   * @param command 命令的字符串表示，用于指定命令的结构和参数
+   * @param permission 可选的权限字符串，用于限定执行该命令所需的权限
+   * @returns (executor: (...args: any) => boolean) => void 返回一个函数，该函数接受一个执行器函数作为参数，并在适当的时候调用它
    *
    * @example
-   * @ bot.command('test', '/test command {arg0: NUMBER} run {arg1: STRING} set {arg2: BOOLEAN}')
-   * function testCommand(source:CommandSource, arg0: number, arg1: string, arg2: boolean) {}
+   * @ bot.command('/test {arg1: NUMBER} {arg2?: NUMBER}')
+   * public calc(source: CommandSource, arg1: number, arg2: number | undefined = undefined): boolean {}
    */
-  public command(namespace: string, command: string): (executor: (...args: any) => void) => void {
+  public command(
+    command: string,
+    permission: string | undefined = undefined
+  ): (executor: (...args: any) => boolean) => void {
     // 当前命令管理器实例的别名，用于内部函数中引用
     const commandManager = this.commandManager;
-    return function (executor: (...args: any) => void) {
-      // 确保传入的命令字符串以正确的前缀开始
-      if (!command.startsWith(commandManager.prefix)) {
-        throw new Error('Invalid command');
-      }
-      // 去除前缀后，分割并处理命令字符串
-      const commands = command.substring(commandManager.prefix.length);
-      const nodes = commands.split(/(?<!:)\s/);
-      // 再次校验命令的有效性
-      if (nodes.length <= 0) {
-        throw new Error('Invalid command');
-      }
-      // 根节点初始化
-      let root = undefined;
-      // 当前节点，用于递归构建命令节点树
-      let curNode;
-      // 遍历所有节点，构建命令节点树
-      for (const node of nodes) {
-        const cmdNode = CustomCommandManager.parseNode(node);
-        // 如果根节点未设置，且当前节点不是字面值节点，则抛出异常
-        if (!root) {
-          if (!cmdNode.isLiteral()) {
-            throw new Error('Invalid command, root node can not be argument node!');
-          }
-          root = cmdNode;
-        } else {
-          // 通过then方法将当前节点链接到前一个节点，形成树状结构
-          if (curNode) curNode.then(cmdNode);
-        }
-        // 更新当前节点为下一个节点
-        curNode = cmdNode;
-      }
-      // 将执行逻辑绑定到命令树的最深节点
-      curNode!.execute(executor);
-      // 将构建完成的根节点注册到命令管理器中
-      commandManager.register(namespace, root!);
+    // 返回一个函数，该函数接受一个执行器函数作为参数，并在适当的时候调用它
+    return function (executor: (...args: any) => boolean) {
+      // 调用命令管理器的解析方法，根据传入的命令字符串和权限字符串来解析并执行命令
+      commandManager?.parse(command, permission)(executor);
     };
-  }
-
-  /**
-   * 执行给定的命令。
-   *
-   * 此方法提供了一个接口来执行命令，它将命令执行的请求委托给命令管理器。
-   * 它主要用于在应用程序中提供一个统一的入口来执行命令，而不需要直接与命令管理器交互。
-   *
-   * @param source - 命令源，表示命令从何而来，用于命令的执行上下文。
-   * @param command - 要执行的命令字符串。此命令应遵循内部约定或格式，以便正确解析和执行。
-   */
-  public executeCommand(source: CommandSource, command: string) {
-    this.logger!.debug(`${source.getName()} execute command: ${command}`);
-    this.post('before-command', this, source, command).then(() => {
-      this.commandManager.execute(source, command);
-      this.post('after-command', this, source, command).then();
-    });
   }
 
   /**
@@ -268,7 +231,7 @@ export class HeyBoxBot {
           // 处理用户消息
           const userMsg: UserImMessage = data.data as UserImMessage;
           const user: UserBaseInfo = userMsg.user_info.user_base_info;
-          bot.post('user-message', bot, user, userMsg).then();
+          bot.post('user-message', bot, user, new UserImMessageImpl(msg => bot.sendMsg(msg), userMsg)).then();
         } else if (data.type === '50') {
           const commandMsg: CommandMessage = data.data as CommandMessage;
           const user: UserBaseInfo = commandMsg.sender_info;
@@ -288,22 +251,22 @@ export class HeyBoxBot {
    * @param user {UserBaseInfo} 发送消息的用户信息
    * @param userMsg {UserImMessage} 用户发送的消息内容
    */
-  private onUserMessage(bot: HeyBoxBot, user: UserBaseInfo, userMsg: UserImMessage) {
+  private onUserMessage(bot: HeyBoxBot, user: UserBaseInfo, userMsg: UserImMessageImpl) {
     // 记录用户消息信息
     bot.logger!.info(`[${user.nickname}|${user.user_id}] ${userMsg.msg}`);
-
-    // 如果消息以命令前缀开头，则执行对应命令
-    if (userMsg.msg.startsWith(bot.commandManager.prefix)) {
-      // 创建并执行命令
-      bot.executeCommand(
-        UserImMessageImpl.create(msg => sendMessage(bot.config.token, msg), userMsg),
-        userMsg.msg
-      );
-    }
   }
 
   private onCommandMessage(bot: HeyBoxBot, user: UserBaseInfo, commandMsg: CommandMessage) {
-    bot.logger!.info(`[${user.nickname}|${user.user_id}] ${commandMsg.command_info.name}`);
+    bot.logger!.info(`[${user.nickname}|${user.user_id}] run command: ${commandMsg.command_info.name}`);
+    const userMsg: MessageImpl = new MessageImpl(msg => bot.sendMsg(msg), commandMsg, {
+      room_id: commandMsg.room_base_info.room_id,
+      room_nickname: commandMsg.room_base_info.room_name,
+      channel_id: commandMsg.channel_base_info.channel_id,
+      channel_name: commandMsg.channel_base_info.channel_name,
+      channel_type: commandMsg.channel_base_info.channel_type,
+      user_info: { user_base_info: commandMsg.sender_info }
+    });
+    bot.commandManager?.execute(commandMsg, userMsg);
   }
 
   public sendMsg(msg: TextMessage) {
